@@ -74,7 +74,7 @@ def create_redis_index(redis_client, index_name, dimension):
         definition = IndexDefinition(prefix=["doc:"], index_type=IndexType.HASH)
         redis_client.ft(index_name).create_index(schema, definition=definition)
  
-app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
  
  
 @app.route(route="upload", methods=["POST"])
@@ -97,7 +97,9 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
             'azure_storage_connection_string': req.form.get('azure_storage_connection_string'),
             'container_name': req.form.get('container_name'),
             'chunk_size': req.form.get('chunk_size'),
-            'chunk_overlap': req.form.get('chunk_overlap')
+            'chunk_overlap': req.form.get('chunk_overlap'),
+            'title': req.form.get('title'),
+            'source': req.form.get('source')
         }
  
         # Verificar parâmetros faltantes
@@ -117,6 +119,8 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
  
         redis_client = redis.Redis(host=required_params['redis_host'], port=redis_port, password=required_params['redis_password'])
         blob_service_client = BlobServiceClient.from_connection_string(required_params['azure_storage_connection_string'])
+        title = required_params['title']
+        source = required_params['source']
  
         # Processar o arquivo enviado
         file = req.files.get('file')
@@ -155,7 +159,7 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
         for i, doc_embedding in enumerate(doc_embeddings):
             doc_id = f"doc:{file_name}:{i}"
             embedding_array = np.array(doc_embedding, dtype=np.float32)
-            redis_client.hset(doc_id, mapping={"content": texts[i], "embedding": embedding_array.tobytes()})
+            redis_client.hset(doc_id, mapping={"content": ('Titulo: ' + title + '\n\n' + texts[i] + '\n\nFonte: '+ source), "embedding": embedding_array.tobytes()})
  
         # Upload do arquivo para o Blob Storage
         container_name = required_params['container_name']
@@ -167,7 +171,7 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
         temp_dir.cleanup()
  
         logging.info("File processed, indexed, and uploaded successfully.")
-        return func.HttpResponse(f"File {file_name} processed and uploaded successfully.", status_code=200)
+        return func.HttpResponse(f"{file_name}", status_code=200)
  
     except Exception as e:
         logging.error(f"Failed to process file: {e}")
