@@ -74,7 +74,7 @@ def create_redis_index(redis_client, index_name, dimension):
         definition = IndexDefinition(prefix=["doc:"], index_type=IndexType.HASH)
         redis_client.ft(index_name).create_index(schema, definition=definition)
  
-app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
  
  
 @app.route(route="upload", methods=["POST"])
